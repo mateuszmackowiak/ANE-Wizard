@@ -12,8 +12,8 @@
     <platform name="Android-ARM"> 
         <applicationDeployment> 
             <nativeLibrary>lib${MYPROJECT_NAME}.jar</nativeLibrary> 
-            <initializer>${MYPROJECT_NAME}.${MYPROJECT_NAME}.${MYPROJECT_NAME}Extension</initializer> 
-            <finalizer>${MYPROJECT_NAME}.${MYPROJECT_NAME}.${MYPROJECT_NAME}Extension</finalizer> 
+            <initializer>${MYPACKAGE_NAME}.${MYPROJECT_NAME}.${MYPROJECT_NAME}Extension</initializer> 
+            <finalizer>${MYPACKAGE_NAME}.${MYPROJECT_NAME}.${MYPROJECT_NAME}Extension</finalizer> 
         </applicationDeployment> 
     </platform> 
     

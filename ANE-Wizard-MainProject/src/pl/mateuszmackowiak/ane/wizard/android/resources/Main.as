@@ -6,6 +6,9 @@ package ${MYPACKAGE_NAME}
 
 	public class ${MYPROJECT_NAME} extends EventDispatcher
 	{
+	
+		public static const Version:String = "1";
+		
 		private static var _instance:${MYPROJECT_NAME};
 		
 		private var extCtx:ExtensionContext = null;

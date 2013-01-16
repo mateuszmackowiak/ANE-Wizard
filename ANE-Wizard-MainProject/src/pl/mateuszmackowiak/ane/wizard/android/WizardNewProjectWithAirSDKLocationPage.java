@@ -1,8 +1,11 @@
 package pl.mateuszmackowiak.ane.wizard.android;
 
 
+
 import java.io.File;
 import java.net.URI;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -15,12 +18,12 @@ import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.wizard.WizardPage;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.VerifyEvent;
-import org.eclipse.swt.events.VerifyListener;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Text;
@@ -56,6 +59,10 @@ public class WizardNewProjectWithAirSDKLocationPage extends WizardPage {
     Text projectNameField;
     Text sdkLocationField;
     Text packageNameField;
+    
+    Set<Button> platforms;
+    
+    
     
     private Listener sdkLocatioModifyListener = new Listener() {
 		
@@ -188,6 +195,7 @@ public class WizardNewProjectWithAirSDKLocationPage extends WizardPage {
         };
     }
 
+    
     /**
      * Creates the project name specification controls.
      *
@@ -255,7 +263,74 @@ public class WizardNewProjectWithAirSDKLocationPage extends WizardPage {
             projectNameField.setText(initialProjectFieldValue);
         }
         projectNameField.addListener(SWT.Modify, nameModifyListener);
+
+        
+        
+        Group group = new Group(projectGroup, SWT.NONE);
+        group.setLayout(new GridLayout());
+        group.setText("platforms");
+        group.setLayoutData(new GridData(GridData.GRAB_HORIZONTAL |
+           GridData.HORIZONTAL_ALIGN_FILL));
+        
+        platforms = new HashSet<Button>();
+        platforms.add(createCheckBox(group,Platform.AndroidARM,true));
+        platforms.add(createCheckBox(group, Platform.IOS_ARM, true));
+        platforms.add(createCheckBox(group, Platform.IOS_x86, true));
+        //platforms.add(createCheckBox(group, Platform.QNX_ARM, false));
+        platforms.add(createCheckBox(group, Platform.Windows_x86, false));
+        platforms.add(createCheckBox(group, Platform.MacOS_x86, false));
     }
+    public enum Platform{
+    	AndroidARM("Android-ARM","ANDROID"),
+    	IOS_ARM("iPhone-ARM","IOS"),
+    	IOS_x86("iPhone-x86","IOS"),
+    	QNX_ARM("QNX-ARM","QNX"),
+    	Windows_x86("Windows-x86","WINDOWS"),
+    	MacOS_x86("MacOS-x86","MAC_OS");
+    	
+    	private String value;
+    	private String folderName;
+    	private Platform(String s,String folderName){
+    		this.value = s;
+    		this.folderName = folderName;
+    	}
+    	public String getValue(){
+    		return this.value;
+    	}
+    	public String getFolderName()
+    	{
+    		return this.folderName;
+    	}
+    	
+    	
+    	public static Platform fromString(String text) {
+    	    if (text != null) {
+    	      for (Platform b : Platform.values()) {
+    	        if (text.equalsIgnoreCase(b.value)) {
+    	          return b;
+    	        }
+    	      }
+    	    }
+    	    return null;
+    	  }
+    }
+    
+    private Button createCheckBox(Group group, Platform platform,boolean selected)
+    {
+    	Button b = new Button(group,SWT.CHECK);
+        b.setText(platform.getValue());
+        b.setSelection(selected);
+        b.addListener(SWT.Selection,checkboxListener);
+        return b;
+    }
+    private Listener checkboxListener = new Listener() {
+		
+		@Override
+		public void handleEvent(Event event) {
+			boolean valid = validatePage();
+            setPageComplete(valid);
+		}
+	};
 
     public final static String aneAIRSDKPathKey = "ANE-Wizard-MainProject.airSdkPath";
     public static String getDefaultSDKPath(){
@@ -340,6 +415,22 @@ public class WizardNewProjectWithAirSDKLocationPage extends WizardPage {
         return new Path(locationArea.getProjectLocation());
     }
     
+    
+    public Set<Platform> getPlatformsEnabled()
+    {
+    	if(platforms==null){
+    		return null;
+    	}
+    	HashSet<Platform> plat = new HashSet<Platform>();
+    	for (Button butt : platforms) {
+			if(butt!=null && butt.getSelection()){
+				plat.add(Platform.fromString(butt.getText()));
+			}
+		}
+    	return plat;
+    }
+    
+
     /**
     /**
      * Returns the current project location URI as entered by 
@@ -488,6 +579,12 @@ public class WizardNewProjectWithAirSDKLocationPage extends WizardPage {
     protected boolean validatePage() {
         IWorkspace workspace = IDEWorkbenchPlugin.getPluginWorkspace();
 
+        Set<Platform> plat = getPlatformsEnabled();
+        if(plat==null || plat.size()==0){
+        	setErrorMessage("Must have at least one platform selected!");
+        	setMessage("Must have at least one platform selected!");
+        	return false;
+        }
         
         String packageNameContents = getPackageNameFieldValue();
         if(packageNameContents==null || packageNameContents.equals("")){

@@ -1,5 +1,7 @@
 <project name="ANE" basedir="." default="compile">
-
+	<taskdef resource="net/sf/antcontrib/antlib.xml">
+	  <classpath path=".ant-contrib.jar"/>
+	</taskdef>
 	<!-- Load variables -->
 	<property file="build.properties"/>
 
@@ -7,14 +9,13 @@
 	<target name="cleanBinaries">
 		<delete dir="${BINARIES_FOLDER}"/>
 		<mkdir dir="${BINARIES_FOLDER}"/>
-		<mkdir dir="${BINARIES_FOLDER}/Android"/>
-		<mkdir dir="${BINARIES_FOLDER}/Android/res"/>
 		<mkdir dir="${BINARIES_FOLDER}/Default"/>
-		<mkdir dir="${BINARIES_FOLDER}/iOS"/>
 	</target>	
-
+	
+	
 	<!-- Clean iOS project -->
-	<target name="iOSClean" depends="cleanBinaries">
+	<target name="iOSClean" if="${IOS_ARM_ENABLE}" depends="cleanBinaries">
+		<mkdir dir="${BINARIES_FOLDER}/iOS"/>
 		<exec executable="xcodebuild" dir="." failonerror="true">
 			<arg line="-project ${IOS_PROJECT_PATH}"/>
 			<arg line="-alltargets clean"/>
@@ -22,7 +23,7 @@
 	</target>	
 
 	<!-- Compile iOS project -->
-	<target name="iOSCompile" depends="iOSClean">
+	<target name="iOSCompile" if="${IOS_ARM_ENABLE}" depends="iOSClean">
 		<exec executable="xcodebuild" dir="." failonerror="true"> 
 			<arg line="-project ${IOS_PROJECT_PATH}"/>
 			<arg line="-sdk iphoneos"/>
@@ -32,23 +33,28 @@
 	</target>
 
 	<!-- Copy iOS lib in binaries folder -->
-	<target name="iOSCopy" depends="iOSCompile">
-		<copy file="${IOS_LIB_PATH}" todir="${BINARIES_FOLDER}/iOS"/>
+	<target name="iOSCopy" if="${IOS_ARM_ENABLE}" depends="iOSCompile">
+		<copy todir="${BINARIES_FOLDER}/iOS">
+			<fileset dir="${IOS_GENERATED_PATH}"/>
+		</copy>
+		<!--<copy file="${IOS_LIB_PATH}" todir="${BINARIES_FOLDER}/iOS"/>-->
 	</target>
 
 	<!-- Clean Android project -->
-	<target name="androidClean" depends="iOSCopy">
+	<target name="androidClean" if="${ANDROID_ENABLE}" depends="iOSCopy">
+		<mkdir dir="${BINARIES_FOLDER}/Android"/>
+		<mkdir dir="${BINARIES_FOLDER}/Android/res"/>
 		<delete dir="${ANDROID_BUILD_FOLDER}"/>
 		<mkdir dir="${ANDROID_BUILD_FOLDER}"/>
 	</target>
 
 	<!-- Export Android lib -->
-	<target name="androidExport" depends="androidClean">
+	<target name="androidExport" if="${ANDROID_ENABLE}" depends="androidClean">
 		<jar basedir="${ANDROID_BIN_FOLDER}/classes" destfile="${ANDROID_LIB_PATH}"/>
 	</target>
 
 	<!-- Copy Android lib in binaries folder -->
-	<target name="androidCopy" depends="androidExport">
+	<target name="androidCopy" if="${ANDROID_ENABLE}" depends="androidExport">
 		<copy file="${ANDROID_LIB_PATH}" todir="${BINARIES_FOLDER}/Android"/>
 	</target>
 
@@ -56,44 +62,175 @@
 	<target name="unzipSwf" depends="androidCopy">
 	    <mkdir dir="temp"/>
 		<unzip src="${SWC_PATH}" dest="temp"/>
-		<copy file="temp/library.swf" todir="${BINARIES_FOLDER}/Android"/>
 		<copy file="temp/library.swf" todir="${BINARIES_FOLDER}/Default"/>
-		<copy file="temp/library.swf" todir="${BINARIES_FOLDER}/iOS"/>
+	</target>
+	<target name="copySwfToAndroid" if="${ANDROID_ENABLE}" depends="unzipSwf">
+		<copy file="temp/library.swf" todir="${BINARIES_FOLDER}/Android"/>
+	</target>
+	<target name="copySwfToIOS" if="${IOS_ARM_ENABLE}" depends="copySwfToAndroid">
+			<copy file="temp/library.swf" todir="${BINARIES_FOLDER}/iOS"/>
+		</target>
+	<target name="deleteTemp" depends="copySwfToIOS">
 		<delete dir="temp"/>
 	</target>
-
+	
+	<!--
+	<if>
+		<equals arg1="${IOS_X86_ENABLE}" arg2="true"/>
+		<then>
+		</then>
+		<else>
+			
+		</else>
+	</if>-->
 	<!-- Compile ANE -->
-	<target name="compile" depends="unzipSwf">
-		<java jar="${ADT.JAR}" fork="true" failonerror="true">
-			<arg value="-package"/>
-			<arg value="-target"/>
-			<arg value="ane"/>
-			<arg value="${ANE_PATH}"/>
-			<arg value="${EXTENSION.XML}"/>
-			
-			<arg value="-swc"/>
-			<arg value="${SWC_PATH}"/>
-			
-			<arg value="-platform"/> 
-			<arg value="Android-ARM"/>
-			<arg value="-C"/>
-			<arg value="${BINARIES_FOLDER}/Android"/>
-			<arg value="."/>
-			
-			<arg value="-platform"/>
-			<arg value="iPhone-ARM"/>
-			<arg value="-platformoptions"/>
-			<arg value="${IOS_PLATFORM_OPTIONS}"/>
-			<arg value="-C"/>
-			<arg value="${BINARIES_FOLDER}/iOS"/>
-			<arg value="."/>
-			
-			<arg value="-platform"/>
-			<arg value="default"/>
-			<arg value="-C"/>
-			<arg value="${BINARIES_FOLDER}/Default"/>
-			<arg value="library.swf"/>
-		</java>
+	<target name="compile" depends="deleteTemp">
+		<if>
+			<equals arg1="${ANDROID_ENABLE}" arg2="true"/>
+			<then>
+				<if>
+					<equals arg1="${IOS_ARM_ENABLE}" arg2="true"/>
+					<then>
+						<if>
+							<equals arg1="${IOS_X86_ENABLE}" arg2="true"/>
+							<then>
+								<java jar="${ADT.JAR}" fork="true" failonerror="true">
+									<arg value="-package"/>
+									<arg value="-target"/>
+									<arg value="ane"/>
+									<arg value="${ANE_PATH}"/>
+									<arg value="${EXTENSION.XML}"/>
+									
+									<arg value="-swc"/>
+									<arg value="${SWC_PATH}"/>
+								
+									<arg value="-platform"/>
+									<arg value="iPhone-ARM"/>
+									<arg value="-platformoptions"/>
+									<arg value="${IOS_PLATFORM_OPTIONS}"/>
+									<arg value="-C"/>
+									<arg value="${BINARIES_FOLDER}/iOS"/>
+									<arg value="."/>
+									
+									<arg value="-platform"/>
+									<arg value="iPhone-x86"/>
+									<arg value="-platformoptions"/>
+									<arg value="${IOS_PLATFORM_OPTIONS}"/>
+									<arg value="-C"/>
+									<arg value="${BINARIES_FOLDER}/iOS"/>
+									<arg value="."/>
+									
+									<arg value="-platform"/> 
+									<arg value="Android-ARM"/>
+									<arg value="-C"/>
+									<arg value="${BINARIES_FOLDER}/Android"/>
+									<arg value="."/>
+									
+									<arg value="-platform"/>
+									<arg value="default"/>
+									<arg value="-C"/>
+									<arg value="${BINARIES_FOLDER}/Default"/>
+									<arg value="library.swf"/>
+								</java>
+							</then>
+							<else>
+								<java jar="${ADT.JAR}" fork="true" failonerror="true">
+									<arg value="-package"/>
+									<arg value="-target"/>
+									<arg value="ane"/>
+									<arg value="${ANE_PATH}"/>
+									<arg value="${EXTENSION.XML}"/>
+									
+									<arg value="-swc"/>
+									<arg value="${SWC_PATH}"/>
+								
+									<arg value="-platform"/>
+									<arg value="iPhone-ARM"/>
+									<arg value="-platformoptions"/>
+									<arg value="${IOS_PLATFORM_OPTIONS}"/>
+									<arg value="-C"/>
+									<arg value="${BINARIES_FOLDER}/iOS"/>
+									<arg value="."/>
+									
+									<arg value="-platform"/> 
+									<arg value="Android-ARM"/>
+									<arg value="-C"/>
+									<arg value="${BINARIES_FOLDER}/Android"/>
+									<arg value="."/>
+									
+									<arg value="-platform"/>
+									<arg value="default"/>
+									<arg value="-C"/>
+									<arg value="${BINARIES_FOLDER}/Default"/>
+									<arg value="library.swf"/>
+								</java>
+							</else>
+						</if>
+					</then>
+					<else>
+						<java jar="${ADT.JAR}" fork="true" failonerror="true">
+							<arg value="-package"/>
+							<arg value="-target"/>
+							<arg value="ane"/>
+							<arg value="${ANE_PATH}"/>
+							<arg value="${EXTENSION.XML}"/>
+							
+							<arg value="-swc"/>
+							<arg value="${SWC_PATH}"/>
+							
+							<arg value="-platform"/> 
+							<arg value="Android-ARM"/>
+							<arg value="-C"/>
+							<arg value="${BINARIES_FOLDER}/Android"/>
+							<arg value="."/>
+							
+							<arg value="-platform"/>
+							<arg value="default"/>
+							<arg value="-C"/>
+							<arg value="${BINARIES_FOLDER}/Default"/>
+							<arg value="library.swf"/>
+						</java>
+					</else>
+				</if>
+			</then>
+			<else>
+				<if>
+					<equals arg1="${IOS_ARM_ENABLE}" arg2="true"/>
+					<then>
+						<java jar="${ADT.JAR}" fork="true" failonerror="true">
+							<arg value="-package"/>
+							<arg value="-target"/>
+							<arg value="ane"/>
+							<arg value="${ANE_PATH}"/>
+							<arg value="${EXTENSION.XML}"/>
+							
+							<arg value="-swc"/>
+							<arg value="${SWC_PATH}"/>
+							
+							<arg value="-platform"/>
+							<arg value="iPhone-ARM"/>
+							<arg value="-platformoptions"/>
+							<arg value="${IOS_PLATFORM_OPTIONS}"/>
+							<arg value="-C"/>
+							<arg value="${BINARIES_FOLDER}/iOS"/>
+							<arg value="."/>
+							
+							<arg value="-platform"/>
+							<arg value="default"/>
+							<arg value="-C"/>
+							<arg value="${BINARIES_FOLDER}/Default"/>
+							<arg value="library.swf"/>
+						</java>
+					</then>
+					<else>
+					</else>
+				</if>
+			</else>
+		</if>
 	</target>
-
+	
+	
+	
+	
+		
 </project>
